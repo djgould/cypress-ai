@@ -57,7 +57,10 @@ Correct the selector in your test to match the actual type attribute of the butt
 cy.get('button[type="submit"]').click();
 \```
 
-Additionally, ensure that the button is rendered and visible in the DOM at the time the test runs. Any conditional rendering or asynchronous behavior could affect element visibility. If the button loads asynchronously, consider using `.should('be.visible')` before the `.click()` command to ensure the button is present and clickable.
+Additionally, ensure that the button is rendered and visible in the DOM at the time the test runs.
+Any conditional rendering or asynchronous behavior could affect element visibility. 
+If the button loads asynchronously, consider using `.should('be.visible')` before the `.click()` 
+command to ensure the button is present and clickable.
 
 ====================================================================================================
 
