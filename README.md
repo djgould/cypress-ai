@@ -49,7 +49,9 @@ export default defineConfig({
   -  /Users/devingould/nextjs-chat/cypress/screenshots/spec.cy.ts/template spec -- pa    (2560x1440)
      sses (failed).png                                                                              
 
-The error indicates that Cypress was unable to find a `button` with the type attribute set to `"submi"`. This could be due to a typo in the attribute value. Double-check the actual type attribute of the button element in your application. It should likely be `"submit"` instead of `"submi"`. Correct the selector in your test to match the actual type attribute of the button:
+The error indicates that Cypress was unable to find a `button` with the type attribute set to `"submi"`. 
+This could be due to a typo in the attribute value. Double-check the actual type attribute of the button element in your application. It should likely be `"submit"` instead of `"submi"`. 
+Correct the selector in your test to match the actual type attribute of the button:
 
 \```javascript
 cy.get('button[type="submit"]').click();
