@@ -1,207 +1,65 @@
-import * as chai from 'chai';
-import { AssertionError } from 'chai';
-import * as sinon from 'sinon';
-import sinonChai from 'sinon-chai';
-import typeDetect from 'type-detect';
+import OpenAI from 'openai';
+import path from 'path';
+import fs from 'fs';
 
-type ConsoleType = 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'table';
-type ConsoleMessage = string | RegExp;
-interface Config {
-    consoleMessages?: ConsoleMessage[];
-    consoleTypes?: ConsoleType[];
-    debug?: boolean;
-}
-
-export { Config };
-export { ConsoleType };
-export { ConsoleMessage };
-
-chai.should();
-chai.use(sinonChai);
-
-export default function failOnConsoleError(_config: Config = {}) {
-    let originConfig: Required<Config> | undefined;
-    let config: Required<Config> | undefined;
-    let spies: Map<ConsoleType, sinon.SinonSpy> | undefined;
-
-    const getConfig = () => config;
-    const setConfig = (_config: Config): void => {
-        validateConfig(_config);
-        config = createConfig(_config);
-        originConfig = originConfig ?? { ...config };
-    };
-
-    setConfig(_config);
-
-    const setSpies = (window: Cypress.AUTWindow) =>
-        (spies = createSpies(config as Required<Config>, window.console));
-
-    if (Cypress.testingType === 'component') {
-        before(() => cy.window().then(setSpies));
-    } else {
-        Cypress.on('window:before:load', setSpies);
-    }
-
-    Cypress.on('command:end', () => {
-        if (!spies) return;
-
-        const consoleMessage: string | undefined = getConsoleMessageIncluded(
-            spies,
-            config as Required<Config>
-        );
-
-        spies = resetSpies(spies);
-
-        if (!consoleMessage) return;
-
-        throw new AssertionError(
-            `cypress-fail-on-console-error:\n${consoleMessage}`
-        );
-    });
-
-    Cypress.on('test:after:run', () => {
-        if (spies) {
-            spies = resetSpies(spies);
-        }
-
-        setConfig(originConfig as Config);
-    });
-
-    return {
-        getConfig,
-        setConfig,
-    };
-}
-
-export const validateConfig = (config: Config): void => {
-    if (config.consoleMessages) {
-        config.consoleMessages.forEach((consoleMessage) => {
-            chai.expect(typeDetect(consoleMessage)).to.be.oneOf([
-                'string',
-                'RegExp',
-            ]);
-            chai.expect(consoleMessage.toString()).to.have.length.above(0);
-        });
-    }
-
-    if (config.consoleTypes) {
-        chai.expect(config.consoleTypes).not.to.be.empty;
-        config.consoleTypes.forEach((consoleType) => {
-            chai.expect([
-                'error',
-                'warn',
-                'info',
-                'debug',
-                'trace',
-                'table',
-            ] as ConsoleType[]).contains(consoleType);
-        });
-    }
-};
-
-export const createConfig = (config: Config): Required<Config> => ({
-    consoleMessages: config.consoleMessages ?? [],
-    consoleTypes: config.consoleTypes?.length ? config.consoleTypes : ['error'],
-    debug: config.debug ?? false,
+const openai = new OpenAI({
+    apiKey: 'your openai key',
 });
 
-export const createSpies = (
-    config: Required<Config>,
-    console: Console
-): Map<ConsoleType, sinon.SinonSpy> => {
-    let spies: Map<ConsoleType, sinon.SinonSpy> = new Map();
-    config.consoleTypes?.forEach((consoleType) => {
-        //TODO: function table does not exists on node.Console
-        spies.set(consoleType, sinon.spy(console, consoleType as any));
-    });
-    return spies;
-};
+export async function cypressAI(result: any) {
+    if ('status' in result) return;
 
-export const resetSpies = (
-    spies: Map<ConsoleType, sinon.SinonSpy>
-): Map<ConsoleType, sinon.SinonSpy> => {
-    spies.forEach((spy) => spy.resetHistory());
-    return spies;
-};
+    await Promise.all(
+        result.runs.map((run) => {
+            const specPath = path.join(
+                __dirname,
+                './cypress/e2e',
+                `${run.spec.fileName}.cy${run.spec.fileExtension}`
+            );
+            console.log(specPath);
+            const specFile: string = fs.readFileSync(specPath).toString();
 
-export const getConsoleMessageIncluded = (
-    spies: Map<ConsoleType, sinon.SinonSpy>,
-    config: Required<Config>
-): string | undefined => {
-    let includedConsoleMessage: string | undefined;
-    Array.from(spies.values()).find((spy) => {
-        if (!spy.called) return false;
-        includedConsoleMessage = findConsoleMessageIncluded(spy, config);
-        return includedConsoleMessage !== undefined;
-    });
-    return includedConsoleMessage;
-};
+            return Promise.all(
+                run.tests.map(async (test) => {
+                    if (test.state === 'passed') return;
+                    const screenshotPath = path.join(
+                        __dirname,
+                        './cypress/screenshots',
+                        'spec.cy.ts',
+                        `${test.title[0]} -- ${test.title[1]} (failed).png`
+                    );
 
-export const findConsoleMessageIncluded = (
-    spy: sinon.SinonSpy,
-    config: Required<Config>
-): string | undefined => {
-    const consoleMessages = spy.args.map((call: any[]) => callToString(call));
+                    const screenshotFile = fs.readFileSync(screenshotPath);
+                    const screenshotBase64 = screenshotFile.toString('base64');
 
-    if (config.consoleMessages.length === 0) {
-        return consoleMessages[0];
-    }
+                    const chatCompletion = await openai.chat.completions.create(
+                        {
+                            messages: [
+                                {
+                                    role: 'user',
+                                    content: [
+                                        {
+                                            type: 'text',
+                                            text: `I have a Cypress test failure with the following error: ${test.displayError}. Here is my spec file: ${specFile} Can you provide general advice on what could be wrong and how to troubleshoot this type of error? Please keep your answer short and concise. This will be used for the error output in a users terminal.`,
+                                        },
+                                        {
+                                            type: 'image_url',
+                                            image_url: {
+                                                url: `data:image/jpeg;base64,${screenshotBase64}`,
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                            model: 'gpt-4-vision-preview',
+                        }
+                    );
 
-    return consoleMessages.find((consoleMessage: string) => {
-        const someConsoleMessagesExcluded = config.consoleMessages.some(
-            (configConsoleMessage: ConsoleMessage) =>
-                isConsoleMessageExcluded(
-                    consoleMessage,
-                    configConsoleMessage,
-                    config.debug
-                )
-        );
-        if (config.debug) {
-            cypressLogger('consoleMessage_excluded', {
-                consoleMessage,
-                someConsoleMessagesExcluded,
-            });
-        }
-        return !someConsoleMessagesExcluded;
-    });
-};
-
-export const isConsoleMessageExcluded = (
-    consoleMessage: string,
-    configConsoleMessage: ConsoleMessage,
-    debug: boolean
-) => {
-    const configConsoleMessageRegExp =
-        configConsoleMessage instanceof RegExp
-            ? configConsoleMessage
-            : new RegExp(configConsoleMessage);
-    const consoleMessageExcluded =
-        configConsoleMessageRegExp.test(consoleMessage);
-    if (debug) {
-        cypressLogger('consoleMessage_configConsoleMessage_match', {
-            consoleMessage,
-            configConsoleMessage,
-            consoleMessageExcluded,
-        });
-    }
-    return consoleMessageExcluded;
-};
-
-export const callToString = (calls: any[]): string =>
-    calls
-        .reduce((previousValue, currentValue) => {
-            const _value = currentValue?.stack ?? currentValue;
-            const _currentValue =
-                typeof _value !== 'string' ? JSON.stringify(_value) : _value;
-            return `${previousValue} ${_currentValue}`;
-        }, '')
-        .trim();
-
-export const cypressLogger = (name: string, message: any) => {
-    Cypress.log({
-        name: name,
-        displayName: name,
-        message: JSON.stringify(message),
-        consoleProps: () => message,
-    });
-};
+                    chatCompletion.choices.map((choice) =>
+                        console.log(choice.message.content)
+                    );
+                })
+            );
+        })
+    );
+}
