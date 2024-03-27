@@ -14,7 +14,9 @@ npm install cypress-ai --save-dev
 
 ```js
 import { defineConfig } from 'cypress'
-import { cypressAI } from './cypress-ai'
+import { createCypressAI } from './cypress-ai'
+
+const cypressAI = createCypressAI({ apiKey: 'open ai api key' })
 
 export default defineConfig({
   e2e: {
