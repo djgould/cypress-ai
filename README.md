@@ -29,52 +29,9 @@ export default defineConfig({
 
 ### Output
 
-```
-...
- (Results)
-
-  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
-  │ Tests:        1                                                                                │
-  │ Passing:      0                                                                                │
-  │ Failing:      1                                                                                │
-  │ Pending:      0                                                                                │
-  │ Skipped:      0                                                                                │
-  │ Screenshots:  1                                                                                │
-  │ Video:        false                                                                            │
-  │ Duration:     6 seconds                                                                        │
-  │ Spec Ran:     spec.cy.ts                                                                       │
-  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+![output](https://private-user-images.githubusercontent.com/10077295/317336078-b5792c3e-e646-428d-93c3-9fd7b5bd18d5.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MTE1NjEyNjYsIm5iZiI6MTcxMTU2MDk2NiwicGF0aCI6Ii8xMDA3NzI5NS8zMTczMzYwNzgtYjU3OTJjM2UtZTY0Ni00MjhkLTkzYzMtOWZkN2I1YmQxOGQ1LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDAzMjclMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwMzI3VDE3MzYwNlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTE3NzRkYjYzNjM5ZjQ3MTJlMGJlNTNmMWFhNWE4NTBiMTI4YWVhZjNmMjExNTcwYzY1OGIzMDI4ZTY1YjRhMDMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.aNmLKYBCVqSQGEDj8T5nW2sT4cO-YsgSBomJdKOgAwQ)
 
 
-  (Screenshots)
-
-  -  /Users/devingould/nextjs-chat/cypress/screenshots/spec.cy.ts/template spec -- pa    (2560x1440)
-     sses (failed).png                                                                              
-
-The error indicates that Cypress was unable to find a `button` with the type attribute set to `"submi"`. 
-This could be due to a typo in the attribute value. Double-check the actual type attribute of the button element in your application. It should likely be `"submit"` instead of `"submi"`. 
-Correct the selector in your test to match the actual type attribute of the button:
-
-\```javascript
-cy.get('button[type="submit"]').click();
-\```
-
-Additionally, ensure that the button is rendered and visible in the DOM at the time the test runs.
-Any conditional rendering or asynchronous behavior could affect element visibility. 
-If the button loads asynchronously, consider using `.should('be.visible')` before the `.click()` 
-command to ensure the button is present and clickable.
-
-====================================================================================================
-
-  (Run Finished)
-
-
-       Spec                                              Tests  Passing  Failing  Pending  Skipped  
-  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
-  │ ✖  spec.cy.ts                               00:06        1        -        1        -        - │
-  └────────────────────────────────────────────────────────────────────────────────────────────────┘
-    ✖  1 of 1 failed (100%)                     00:06        1        -        1        -        -  
-```
 
 ### Contributing
 1. Create an project issue with proper description and expected behaviour
