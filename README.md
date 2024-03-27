@@ -5,7 +5,7 @@ This Plugin leverages OpenAI to help give tips to debugging cypress tests when t
 ### Installation
 
 ```
-npm install cypress-ai --save-dev
+npm install @djgould/cypress-ai --save-dev
 ```
 
 ### Usage
@@ -14,7 +14,7 @@ npm install cypress-ai --save-dev
 
 ```js
 import { defineConfig } from 'cypress'
-import { createCypressAI } from './cypress-ai'
+import { createCypressAI } from '@djgould/cypress-ai'
 
 const cypressAI = createCypressAI({ apiKey: 'open ai api key' })
 
