@@ -28,7 +28,7 @@ export default defineConfig({
 ```
 
 *Include failed html in request to open ai*
-1. Configure Cyclope to save page after failure (here)[https://github.com/bahmutov/cyclope/tree/main?tab=readme-ov-file#save-the-failed-page]
+1. Configure Cyclope to save page after failure [here](https://github.com/bahmutov/cyclope/tree/main?tab=readme-ov-file#save-the-failed-page)
 2. Add `includeFailedHtml: true` to options:
 ```
   cypressAI(on, config, { apiKey: 'open ai api key', includeFailedHtml: true })
