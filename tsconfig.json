@@ -12,7 +12,8 @@
         "sourceMap": false,
         "types": ["cypress", "node"],
         "moduleResolution": "bundler",
-        "module": "es6"
+        "module": "es6",
+        "typeRoots": ["./node_modules", "./types", "node_modules/@types"],
     },
-    "include": ["src"]
+    "include": ["src", "types", "node_modules/@types"],
 }

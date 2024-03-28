@@ -1,146 +1,108 @@
-import * as chai from 'chai';
-import { AssertionError } from 'chai';
-import * as sinon from 'sinon';
-import sinonChai from 'sinon-chai';
-import typeDetect from 'type-detect';
-chai.should();
-chai.use(sinonChai);
-export default function failOnConsoleError(_config = {}) {
-    let originConfig;
-    let config;
-    let spies;
-    const getConfig = () => config;
-    const setConfig = (_config) => {
-        validateConfig(_config);
-        config = createConfig(_config);
-        originConfig = originConfig !== null && originConfig !== void 0 ? originConfig : Object.assign({}, config);
-    };
-    setConfig(_config);
-    const setSpies = (window) => (spies = createSpies(config, window.console));
-    if (Cypress.testingType === 'component') {
-        before(() => cy.window().then(setSpies));
-    }
-    else {
-        Cypress.on('window:before:load', setSpies);
-    }
-    Cypress.on('command:end', () => {
-        if (!spies)
-            return;
-        const consoleMessage = getConsoleMessageIncluded(spies, config);
-        spies = resetSpies(spies);
-        if (!consoleMessage)
-            return;
-        throw new AssertionError(`cypress-fail-on-console-error:\n${consoleMessage}`);
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
-    Cypress.on('test:after:run', () => {
-        if (spies) {
-            spies = resetSpies(spies);
-        }
-        setConfig(originConfig);
-    });
-    return {
-        getConfig,
-        setConfig,
-    };
+};
+import OpenAI from 'openai';
+import fs from 'fs';
+import * as readline from 'readline';
+import { default as cyclopePlugin } from 'cyclope/plugin';
+import path from 'path';
+function isCypressFailedRunResult(result) {
+    return 'status' in result;
 }
-export const validateConfig = (config) => {
-    if (config.consoleMessages) {
-        config.consoleMessages.forEach((consoleMessage) => {
-            chai.expect(typeDetect(consoleMessage)).to.be.oneOf([
-                'string',
-                'RegExp',
-            ]);
-            chai.expect(consoleMessage.toString()).to.have.length.above(0);
+export function cypressAI(on, config, options = {
+    apiKey: '',
+    includeFailedHtml: false,
+}) {
+    cyclopePlugin(on, config);
+    const openai = new OpenAI({
+        apiKey: options.apiKey,
+    });
+    function cypressAI(result) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (isCypressFailedRunResult(result))
+                return;
+            if (result.totalFailed === 0)
+                return;
+            yield Promise.all(result.runs.map((run) => {
+                return Promise.all(run.tests.map((test) => __awaiter(this, void 0, void 0, function* () {
+                    if (test.state === 'passed')
+                        return;
+                    const screenshotFile = fs.readFileSync(run.screenshots[0].path);
+                    const screenshotBase64 = screenshotFile.toString('base64');
+                    const twirlTimer = createSpinner();
+                    const failedHtmlFull = options.includeFailedHtml
+                        ? fs
+                            .readFileSync(path.join(__dirname, 'cypress/failed', `${run.spec.fileName}.cy${run.spec.fileExtension}`, `${test.title[1]}`, 'index.html'))
+                            .toString()
+                        : null;
+                    const bodyRegex = /<body[^>]*>([\s\S]*?)<\/body>/i;
+                    const bodyMatch = failedHtmlFull === null || failedHtmlFull === void 0 ? void 0 : failedHtmlFull.match(bodyRegex);
+                    const failedHtml = bodyMatch ? bodyMatch[1] : '';
+                    const chatCompletion = yield sendMessage(test, run, screenshotBase64, failedHtml);
+                    logOutput(test, run, chatCompletion);
+                    clearSpinner(twirlTimer);
+                })));
+            }));
+            return cypressAI;
         });
     }
-    if (config.consoleTypes) {
-        chai.expect(config.consoleTypes).not.to.be.empty;
-        config.consoleTypes.forEach((consoleType) => {
-            chai.expect([
-                'error',
-                'warn',
-                'info',
-                'debug',
-                'trace',
-                'table',
-            ]).contains(consoleType);
-        });
-    }
-};
-export const createConfig = (config) => {
-    var _a, _b, _c;
-    return ({
-        consoleMessages: (_a = config.consoleMessages) !== null && _a !== void 0 ? _a : [],
-        consoleTypes: ((_b = config.consoleTypes) === null || _b === void 0 ? void 0 : _b.length) ? config.consoleTypes : ['error'],
-        debug: (_c = config.debug) !== null && _c !== void 0 ? _c : false,
-    });
-};
-export const createSpies = (config, console) => {
-    var _a;
-    let spies = new Map();
-    (_a = config.consoleTypes) === null || _a === void 0 ? void 0 : _a.forEach((consoleType) => {
-        //TODO: function table does not exists on node.Console
-        spies.set(consoleType, sinon.spy(console, consoleType));
-    });
-    return spies;
-};
-export const resetSpies = (spies) => {
-    spies.forEach((spy) => spy.resetHistory());
-    return spies;
-};
-export const getConsoleMessageIncluded = (spies, config) => {
-    let includedConsoleMessage;
-    Array.from(spies.values()).find((spy) => {
-        if (!spy.called)
-            return false;
-        includedConsoleMessage = findConsoleMessageIncluded(spy, config);
-        return includedConsoleMessage !== undefined;
-    });
-    return includedConsoleMessage;
-};
-export const findConsoleMessageIncluded = (spy, config) => {
-    const consoleMessages = spy.args.map((call) => callToString(call));
-    if (config.consoleMessages.length === 0) {
-        return consoleMessages[0];
-    }
-    return consoleMessages.find((consoleMessage) => {
-        const someConsoleMessagesExcluded = config.consoleMessages.some((configConsoleMessage) => isConsoleMessageExcluded(consoleMessage, configConsoleMessage, config.debug));
-        if (config.debug) {
-            cypressLogger('consoleMessage_excluded', {
-                consoleMessage,
-                someConsoleMessagesExcluded,
+    function sendMessage(test, run, screenshotBase64, failedHtml) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const chatCompletion = yield openai.chat.completions.create({
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: `I have a Cypress test failure with the following error: ${test.displayError}. Here is my spec file: ${run.spec.absolute} Can you provide general advice on what could be wrong and how to troubleshoot this type of error? Please keep your answer short and concise. This will be used for the error output in a users terminal. Here is the html: ${failedHtml}`,
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: `data:image/jpeg;base64,${screenshotBase64}`,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                model: 'gpt-4-vision-preview',
             });
-        }
-        return !someConsoleMessagesExcluded;
-    });
-};
-export const isConsoleMessageExcluded = (consoleMessage, configConsoleMessage, debug) => {
-    const configConsoleMessageRegExp = configConsoleMessage instanceof RegExp
-        ? configConsoleMessage
-        : new RegExp(configConsoleMessage);
-    const consoleMessageExcluded = configConsoleMessageRegExp.test(consoleMessage);
-    if (debug) {
-        cypressLogger('consoleMessage_configConsoleMessage_match', {
-            consoleMessage,
-            configConsoleMessage,
-            consoleMessageExcluded,
+            return chatCompletion;
         });
     }
-    return consoleMessageExcluded;
-};
-export const callToString = (calls) => calls
-    .reduce((previousValue, currentValue) => {
-    var _a;
-    const _value = (_a = currentValue === null || currentValue === void 0 ? void 0 : currentValue.stack) !== null && _a !== void 0 ? _a : currentValue;
-    const _currentValue = typeof _value !== 'string' ? JSON.stringify(_value) : _value;
-    return `${previousValue} ${_currentValue}`;
-}, '')
-    .trim();
-export const cypressLogger = (name, message) => {
-    Cypress.log({
-        name: name,
-        displayName: name,
-        message: JSON.stringify(message),
-        consoleProps: () => message,
+    on('after:run', cypressAI);
+}
+function logOutput(test, run, chatCompletion) {
+    console.log(`
+==============================
+
+[Specfile]: ${run.spec.absolute}
+
+[Error]: ${test.displayError}
+
+[Suggested solutions]: 
+`);
+    chatCompletion.choices.forEach((choice) => {
+        console.log(`\x1b[33m ${choice.message.content} \x1b[0m`);
+        console.log('\r');
     });
-};
+}
+function createSpinner() {
+    const P = ['\\', '|', '/', '-'];
+    let x = 0;
+    return setInterval(function () {
+        process.stdout.write(`\r  generating solutions ${P[x++]}`);
+        x &= 3;
+    }, 250);
+}
+function clearSpinner(ref) {
+    clearInterval(ref);
+    readline.clearLine(process.stdout, 0);
+}

@@ -1,3 +1,5 @@
+# THIS IS CURRENTLY AN EXPERIMENTAL PROJECT. YOU WILL PROBABLY GET ERRORS
+
 # cypress-ai
 
 This Plugin leverages OpenAI to help give tips to debugging cypress tests when they fail.
@@ -14,17 +16,22 @@ npm install @djgould/cypress-ai --save-dev
 
 ```js
 import { defineConfig } from 'cypress'
-import { createCypressAI } from '@djgould/cypress-ai'
-
-const cypressAI = createCypressAI({ apiKey: 'open ai api key' })
+import { cypressAI } from '@djgould/cypress-ai'
 
 export default defineConfig({
   e2e: {
     setupNodeEvents(on, config) {
-      on('after:run', cypressAI)
+      cypressAI(on, config, { apiKey: 'open ai api key' })
     }
   }
 })
+```
+
+*Include failed html in request to open ai*
+1. Configure Cyclope to save page after failure (here)[https://github.com/bahmutov/cyclope/tree/main?tab=readme-ov-file#save-the-failed-page]
+2. Add `includeFailedHtml: true` to options:
+```
+  cypressAI(on, config, { apiKey: 'open ai api key', includeFailedHtml: true })
 ```
 
 ### Output

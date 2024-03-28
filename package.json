@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "description": "Asks AI to help guide you on cypress test failures",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
   "files": [
     "dist/**/*"
   ],
   "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
     "build": "npx rimraf dist/ && tsc",
     "prettier": "prettier --write \"**/*\"",
     "lint": "tsc --noEmit && tsc -p ./test/tsconfig.json && tsc -p ./cypress/tsconfig.json",
@@ -38,6 +38,7 @@
   "homepage": "https://github.com/djgould/cypress-ai#readme",
   "dependencies": {
     "chai": "^4.3.10",
+    "cyclope": "^2.7.1",
     "openai": "^4.29.2",
     "sinon": "^17.0.0",
     "sinon-chai": "^3.7.0",
@@ -57,7 +58,7 @@
     "prettier": "3.0.3",
     "prettier-plugin-organize-imports": "3.2.4",
     "rimraf": "5.0.5",
-    "typescript": "5.4.3",
+    "typescript": "^5.4.3",
     "vite": "^5.0.0",
     "vitest": "^1.0.0"
   },

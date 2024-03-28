@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 import fs from 'fs';
 import * as readline from 'readline';
-import { ChatCompletion } from 'openai/resources/index.mjs';
+import { default as cyclopePlugin } from 'cyclope/plugin';
+import path from 'path';
 
 function isCypressFailedRunResult(
     result:
@@ -11,11 +12,18 @@ function isCypressFailedRunResult(
     return 'status' in result;
 }
 
-export function createCypressAI(config: { apiKey: string }) {
+export function cypressAI(
+    on: Cypress.PluginEvents,
+    config: Cypress.PluginConfigOptions,
+    options: { apiKey: string; includeFailedHtml?: boolean } = {
+        apiKey: '',
+        includeFailedHtml: false,
+    }
+) {
+    cyclopePlugin(on, config);
     const openai = new OpenAI({
-        apiKey: config.apiKey,
+        apiKey: options.apiKey,
     });
-
     async function cypressAI(
         result:
             | CypressCommandLine.CypressRunResult
@@ -23,7 +31,6 @@ export function createCypressAI(config: { apiKey: string }) {
     ) {
         if (isCypressFailedRunResult(result)) return;
         if (result.totalFailed === 0) return;
-
         await Promise.all(
             result.runs.map((run) => {
                 return Promise.all(
@@ -34,30 +41,42 @@ export function createCypressAI(config: { apiKey: string }) {
                         );
                         const screenshotBase64 =
                             screenshotFile.toString('base64');
-
                         const twirlTimer = createSpinner();
-
+                        const failedHtmlFull = options.includeFailedHtml
+                            ? fs
+                                  .readFileSync(
+                                      path.join(
+                                          __dirname,
+                                          'cypress/failed',
+                                          `${run.spec.fileName}.cy${run.spec.fileExtension}`,
+                                          `${test.title[1]}`,
+                                          'index.html'
+                                      )
+                                  )
+                                  .toString()
+                            : null;
+                        const bodyRegex = /<body[^>]*>([\s\S]*?)<\/body>/i;
+                        const bodyMatch = failedHtmlFull?.match(bodyRegex);
+                        const failedHtml = bodyMatch ? bodyMatch[1] : '';
                         const chatCompletion = await sendMessage(
                             test,
                             run,
-                            screenshotBase64
+                            screenshotBase64,
+                            failedHtml
                         );
-
                         logOutput(test, run, chatCompletion);
-
                         clearSpinner(twirlTimer);
                     })
                 );
             })
         );
-
         return cypressAI;
     }
-
     async function sendMessage(
         test: CypressCommandLine.TestResult,
         run: CypressCommandLine.RunResult,
-        screenshotBase64: string
+        screenshotBase64: string,
+        failedHtml: string
     ) {
         const chatCompletion = await openai.chat.completions.create({
             messages: [
@@ -66,7 +85,7 @@ export function createCypressAI(config: { apiKey: string }) {
                     content: [
                         {
                             type: 'text',
-                            text: `I have a Cypress test failure with the following error: ${test.displayError}. Here is my spec file: ${run.spec.absolute} Can you provide general advice on what could be wrong and how to troubleshoot this type of error? Please keep your answer short and concise. This will be used for the error output in a users terminal.`,
+                            text: `I have a Cypress test failure with the following error: ${test.displayError}. Here is my spec file: ${run.spec.absolute} Can you provide general advice on what could be wrong and how to troubleshoot this type of error? Please keep your answer short and concise. This will be used for the error output in a users terminal. Here is the html: ${failedHtml}`,
                         },
                         {
                             type: 'image_url',
@@ -79,17 +98,15 @@ export function createCypressAI(config: { apiKey: string }) {
             ],
             model: 'gpt-4-vision-preview',
         });
-
         return chatCompletion;
     }
-
-    return cypressAI;
+    on('after:run' as 'task', cypressAI as any);
 }
 
 function logOutput(
     test: CypressCommandLine.TestResult,
     run: CypressCommandLine.RunResult,
-    chatCompletion: ChatCompletion
+    chatCompletion: OpenAI.ChatCompletion
 ) {
     console.log(`
 ==============================
