@@ -1,3 +1,4 @@
 node_modules/
 /cypress.config.ts
 .DS_Store
+dist/
