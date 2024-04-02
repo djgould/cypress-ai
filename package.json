@@ -1,6 +1,6 @@
 {
   "name": "@djgould/cypress-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Asks AI to help guide you on cypress test failures",
   "type": "module",
   "main": "dist/index.js",
